@@ -1,0 +1,36 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- Base application theme. -->
+    <style name="BaseTheme" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <!-- Status bar color. -->
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:enforceStatusBarContrast" tools:targetApi="q">true</item>
+    </style>
+    <style name="Theme.BluetoothShowcase" parent="BaseTheme">
+        <!-- Primary brand color. -->
+        <item name="colorPrimary">@color/purple_500</item>
+        <item name="colorPrimaryVariant">@color/purple_700</item>
+        <item name="colorOnPrimary">@color/white</item>
+        <!-- Secondary brand color. -->
+        <item name="colorSecondary">@color/teal_200</item>
+        <item name="colorSecondaryVariant">@color/teal_700</item>
+        <item name="colorOnSecondary">@color/black</item>
+        <!-- Customize your theme here. -->
+    </style>
+
+    <style name="Widget.App.LinearProgressIndicator" parent="Widget.MaterialComponents.LinearProgressIndicator">
+        <item name="indicatorColor">@color/inactive_link</item>
+        <item name="android:trackTint">@color/primary_color</item>
+        <item name="trackThickness">4dp</item>
+        <item name="trackCornerRadius">4dp</item>
+    </style>
+
+    <style name="Widget.App.FloatingActionButton" parent="Widget.MaterialComponents.FloatingActionButton">
+        <item name="iconTint">@color/button_text</item>
+    </style>
+
+    <style name="ThemeOverlay.App.FloatingActionButton" parent="">
+        <item name="colorSecondary">@color/primary_color</item>
+        <item name="colorOnSecondary">@color/button_text</item>
+    </style>
+</resources>

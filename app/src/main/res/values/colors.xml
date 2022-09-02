@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="purple_200">#FFBB86FC</color>
+    <color name="purple_500">#FF6200EE</color>
+    <color name="purple_700">#FF3700B3</color>
+    <color name="teal_200">#FF03DAC5</color>
+    <color name="teal_700">#FF018786</color>
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+
+    <color name="background">#FFFFFF</color>
+    <color name="secondary_background">#F2F3F7</color>
+    <color name="ratings_background">#FFFFFF</color>
+    <color name="divider">#D4D4D5</color>
+    <color name="secondary_elements">#939396</color>
+    <color name="typo">#27272E</color>
+    <color name="tag">#CCF2F3F7</color>
+    <color name="button_inactive">#FFD1B3</color>
+    <color name="button_text">#FFFFFF</color>
+    <color name="inactive_link">#FFC199</color>
+    <color name="active_link">#FF6500</color>
+
+    <color name="primary_color">#FF6500</color>
+    <color name="error">#EF404A</color>
+    <color name="tertiary">#68686D</color>
+    <color name="movie_actor_overlay">#333D3D43</color>
+    <color name="background_blur">#CC27272E</color>
+    <color name="transparent">#00000000</color>
+</resources>
