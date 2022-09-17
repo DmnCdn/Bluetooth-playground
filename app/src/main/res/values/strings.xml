@@ -1,3 +1,15 @@
 <resources>
     <string name="app_name">Bluetooth Showcase</string>
+    
+    <string name="bluetooth_turning_off">Bluetooth turning off…</string>
+    <string name="bluetooth_turning_on">Bluetooth turning on…</string>
+    <string name="bluetooth_on">Bluetooth on.</string>
+    <string name="bluetooth_off">Bluetooth off.</string>
+
+    <string name="search_for_devices">Search for nearby bluetooth devices.</string>
+    <string name="searching">Searching…</string>
+    <string name="found_devices">Found %1$d devices near you.</string>
+
+    <string name="ndash">&#8212;</string>
+    <string name="connect">Connect</string>
 </resources>

@@ -43,7 +43,8 @@
         tools:itemCount="20"
         android:paddingBottom="56dp"
         android:clipToPadding="false"
-        android:layout_margin="16dp"/>
+        android:layout_marginTop="16dp"
+        android:layout_marginHorizontal="16dp"/>
 
     <com.google.android.material.floatingactionbutton.FloatingActionButton
         android:id="@+id/searchButton"

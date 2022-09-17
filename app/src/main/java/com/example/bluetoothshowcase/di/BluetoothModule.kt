@@ -25,6 +25,6 @@ object BluetoothModule {
     @Singleton
     fun provideBluetoothAdapter(
         btManager: BluetoothManager
-    ) : BluetoothAdapter = btManager.adapter
+    ): BluetoothAdapter = btManager.adapter
 
 }
