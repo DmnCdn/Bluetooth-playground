@@ -9,29 +9,46 @@
 
     <TextView
         android:id="@+id/infoTextView"
-        android:layout_width="match_parent"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toStartOf="@id/discoverabilitySwitch"
         app:layout_constraintTop_toTopOf="parent"
         android:paddingVertical="12dp"
         android:gravity="start|center"
         android:textSize="16sp"
         android:textAlignment="center"
+        android:singleLine="true"
         tools:text="10 bluetooth devices detected nearby"
         android:text="Search for nearby bluetooth devices."
+        android:ellipsize="end"
         android:textColor="@color/typo"
         android:layout_marginHorizontal="16dp"/>
+
+    <com.google.android.material.switchmaterial.SwitchMaterial
+        android:id="@+id/discoverabilitySwitch"
+        style="@style/Widget.App.CompoundButton.Switch"
+        android:theme="@style/ThemeOverlay.App.CompoundButton.Switch"
+        tools:checked="true"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        app:layout_constraintTop_toTopOf="@id/infoTextView"
+        app:layout_constraintBottom_toBottomOf="@id/infoTextView"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginEnd="16dp"/>
 
     <com.google.android.material.progressindicator.LinearProgressIndicator
         android:id="@+id/loadingView"
         style="@style/Widget.App.LinearProgressIndicator"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        app:layout_constraintStart_toStartOf="@id/infoTextView"
+        app:layout_constraintEnd_toEndOf="@id/discoverabilitySwitch"
+        app:layout_constraintTop_toBottomOf="@id/infoTextView"
         android:indeterminate="true"
         app:indicatorColor="@color/primary_color"
-        app:layout_constraintTop_toBottomOf="@id/infoTextView"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
         tools:visibility="visible"
-        android:visibility="invisible"
-        android:layout_marginHorizontal="16dp"/>
+        android:visibility="invisible"/>
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/deviceRecyclerView"
@@ -48,8 +65,8 @@
 
     <com.google.android.material.floatingactionbutton.FloatingActionButton
         android:id="@+id/searchButton"
-        android:theme="@style/ThemeOverlay.App.FloatingActionButton"
         style="@style/Widget.App.FloatingActionButton"
+        tools:enabled="true"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         app:layout_constraintBottom_toBottomOf="parent"

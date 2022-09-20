@@ -5,11 +5,9 @@ import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothServerSocket
 import android.bluetooth.BluetoothSocket
-import android.content.Context
 import android.content.Intent
 import android.os.Binder
 import android.os.IBinder
-import android.os.ParcelUuid
 import android.util.Log
 import com.example.bluetoothshowcase.R
 import dagger.hilt.android.AndroidEntryPoint
@@ -175,12 +173,25 @@ class BluetoothConnectionService : Service() {
             var numBytes: Int
 
             while (true) {
-                numBytes = try {
-                    mmInStream.read(mmBuffer)
+                try {
+                    numBytes = mmInStream.read(mmBuffer)
+                    val message = String(mmBuffer, 0, numBytes)
+                    Log.d(TAG, "${mmSocket.remoteDevice.address}: $message")
                 } catch (e: IOException) {
                     Log.d(TAG, "Input stream was disconnected", e)
                     break
                 }
+            }
+        }
+
+        fun write(bytes: ByteArray) {
+            val text = String(bytes, Charset.defaultCharset())
+            Log.d(TAG, "write: Writing to outputstream: $text")
+
+            try {
+                mmOutStream.write(bytes)
+            } catch (e: IOException) {
+                Log.e(TAG,"write: Error writing to output stream. " + e.message)
             }
         }
 
@@ -217,19 +228,24 @@ class BluetoothConnectionService : Service() {
 
     // start connection with a device
     fun startConnectionClient(device: BluetoothDevice?) {
-        Log.i(TAG, "startConnectionClient")
+        Log.d(TAG, "startConnectionClient")
         // connect thread attempts to make a connection with the other devices accept thread
         mConnectThread = ConnectThread(device, UUID.fromString(SerialPortServiceClassUUID))
         mConnectThread?.start()
     }
 
     fun connected(socket: BluetoothSocket?) {
-        Log.i(TAG, "connected")
+        Log.d(TAG, "connected()")
 
         // Start the thread to manage the connection and perform transmissions
         socket?.let {
             mConnectedThread = ConnectedThread(it)
             mConnectedThread?.start()
         }
+    }
+
+    fun write(message: String) {
+        val bytes = message.toByteArray(Charset.defaultCharset())
+        mConnectedThread?.write(bytes)
     }
 }

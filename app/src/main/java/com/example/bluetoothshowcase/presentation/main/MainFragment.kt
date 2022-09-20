@@ -16,13 +16,11 @@ import android.view.ViewGroup
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.location.LocationManagerCompat
 import androidx.core.view.isInvisible
-import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.SimpleItemAnimator
 import com.example.bluetoothshowcase.R
-import com.example.bluetoothshowcase.databinding.DeviceListItemViewBinding
 import com.example.bluetoothshowcase.databinding.FragmentMainBinding
 import com.example.bluetoothshowcase.model.view.BluetoothDeviceOnView
 import com.example.bluetoothshowcase.service.BluetoothConnectionService
@@ -32,6 +30,7 @@ import com.example.bluetoothshowcase.utils.MyBroadcastReceiver
 import dagger.hilt.android.AndroidEntryPoint
 
 private const val TAG = "MainFragment"
+private const val DISCOVERABLE_DURATION = 15
 
 @AndroidEntryPoint
 class MainFragment : Fragment(), ClickActionInterface, BroadcastActionCallback {
@@ -46,13 +45,11 @@ class MainFragment : Fragment(), ClickActionInterface, BroadcastActionCallback {
     private var mBluetoothConnection: BluetoothConnectionService? = null
     private var mBluetoothServiceBounded: Boolean = false
 
-    private val gpsUtils by lazy {
-        GpsUtils(requireActivity())
-    }
+    private val gpsUtils by lazy { GpsUtils(requireActivity()) }
 
-    private val deviceAdapter by lazy {
-        DeviceListAdapter(this)
-    }
+    private val deviceAdapter by lazy { DeviceListAdapter(this) }
+    private var expandedDevice: BluetoothDeviceOnView? = null
+    private var expandedPosition: Int? = null
 
     private val receiver = MyBroadcastReceiver(this)
 
@@ -76,6 +73,13 @@ class MainFragment : Fragment(), ClickActionInterface, BroadcastActionCallback {
             }
         }
 
+    private val requestDiscoverability =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            if(result.resultCode != DISCOVERABLE_DURATION) {
+                toggleDiscoverabilitySwitch(checked = false)
+            }
+        }
+
     private var mLeScanCallback: ScanCallback =
         object : ScanCallback() {
             override fun onScanResult(callbackType: Int, result: ScanResult?) {
@@ -86,17 +90,11 @@ class MainFragment : Fragment(), ClickActionInterface, BroadcastActionCallback {
             }
         }
 
+    // lifecycle methods
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val filter = IntentFilter()
-        filter.addAction(BluetoothDevice.ACTION_FOUND)
-        filter.addAction(BluetoothDevice.ACTION_BOND_STATE_CHANGED)
-        filter.addAction(BluetoothAdapter.ACTION_DISCOVERY_STARTED)
-        filter.addAction(BluetoothAdapter.ACTION_DISCOVERY_FINISHED)
-        filter.addAction(LocationManager.MODE_CHANGED_ACTION)
-        filter.addAction(LocationManager.PROVIDERS_CHANGED_ACTION)
-        filter.addAction(BluetoothAdapter.ACTION_STATE_CHANGED)
-        requireActivity().registerReceiver(receiver, filter)
+        registerReceiver()
 
         if(!mBluetoothServiceBounded) {
             bindBluetoothService()
@@ -117,15 +115,7 @@ class MainFragment : Fragment(), ClickActionInterface, BroadcastActionCallback {
 
         setupRecyclerView()
         observeViewModel()
-
-        binding.searchButton.setOnClickListener {
-            if(searchStarted) {
-                viewModel.searchFinished()
-            } else {
-                searchStarted = true
-                search()
-            }
-        }
+        setupClickableViews()
     }
 
     override fun onDestroyView() {
@@ -133,11 +123,39 @@ class MainFragment : Fragment(), ClickActionInterface, BroadcastActionCallback {
         super.onDestroyView()
     }
 
+    // private methods
+
     private fun setupRecyclerView() {
         with(binding.deviceRecyclerView) {
             layoutManager = LinearLayoutManager(this.context)
             adapter = deviceAdapter
             (itemAnimator as SimpleItemAnimator).supportsChangeAnimations = false
+        }
+    }
+
+    private fun setupClickableViews() {
+        // since you cant turn off discoverability we'll just disable the switch after clicking yes
+        // to turn on discoverability
+        // after the timeout is over (we'll probably listen in a broadcast receiver), we flip the switch
+        // and enable it again
+        with(binding.discoverabilitySwitch) {
+            setOnCheckedChangeListener { _, checked ->
+                if(checked) {
+                    // disable the switch
+                    this.isClickable = false
+                    // start discoverability
+                    val intent = Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE)
+                    intent.putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, DISCOVERABLE_DURATION)
+                    requestDiscoverability.launch(intent)
+                } else {
+                    this.isClickable = true
+                }
+            }
+        }
+
+        binding.searchButton.setOnClickListener {
+            searchStarted = true
+            search()
         }
     }
 
@@ -168,6 +186,19 @@ class MainFragment : Fragment(), ClickActionInterface, BroadcastActionCallback {
                 }
             }
         }
+    }
+
+    private fun registerReceiver() {
+        val filter = IntentFilter()
+        filter.addAction(BluetoothDevice.ACTION_FOUND)
+        filter.addAction(BluetoothDevice.ACTION_BOND_STATE_CHANGED)
+        filter.addAction(BluetoothAdapter.ACTION_DISCOVERY_STARTED)
+        filter.addAction(BluetoothAdapter.ACTION_DISCOVERY_FINISHED)
+        filter.addAction(LocationManager.MODE_CHANGED_ACTION)
+        filter.addAction(LocationManager.PROVIDERS_CHANGED_ACTION)
+        filter.addAction(BluetoothAdapter.ACTION_STATE_CHANGED)
+        filter.addAction(BluetoothAdapter.ACTION_SCAN_MODE_CHANGED)
+        requireActivity().registerReceiver(receiver, filter)
     }
 
     private fun search() {
@@ -205,6 +236,16 @@ class MainFragment : Fragment(), ClickActionInterface, BroadcastActionCallback {
     private fun turnOnBluetooth() {
         val intent = Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)
         requestBluetooth.launch(intent)
+    }
+
+    private fun toggleDiscoverabilitySwitch(checked: Boolean? = null) {
+        with(binding.discoverabilitySwitch) {
+            checked?.let {
+                isChecked = checked
+            } ?: {
+                isChecked = !isChecked
+            }
+        }
     }
 
     private fun isLocationEnabled(): Boolean {
@@ -276,7 +317,7 @@ class MainFragment : Fragment(), ClickActionInterface, BroadcastActionCallback {
     }
 
     private fun connectToDevice(device: BluetoothDevice) {
-        Log.e(TAG, "connectToDevice: ")
+        Log.d(TAG, "connectToDevice: ${device.address}")
         mBluetoothConnection?.startConnectionClient(device)
     }
 
@@ -287,7 +328,7 @@ class MainFragment : Fragment(), ClickActionInterface, BroadcastActionCallback {
         try {
             viewModel.btAdapter.cancelDiscovery()
             val deviceObject = viewModel.getDeviceWithAddress(device.address)
-            if(!viewModel.btAdapter.bondedDevices.contains(deviceObject)) {
+            if(deviceObject.bondState == BluetoothDevice.BOND_NONE) {
                 deviceObject.createBond()
             } else {
                 connectToDevice(deviceObject)
@@ -298,11 +339,27 @@ class MainFragment : Fragment(), ClickActionInterface, BroadcastActionCallback {
         }
     }
 
-    override fun itemViewClicked(itemViewBinding: DeviceListItemViewBinding, position: Int) {
-        Log.d(TAG, "itemViewClicked: $position")
-        with(itemViewBinding.searchButton) {
-            isVisible = !isVisible
+    override fun itemViewClicked(deviceOnView: BluetoothDeviceOnView, position: Int) {
+        with(deviceOnView) {
+            // check if was clicked on the same one
+            if(expandedDevice == deviceOnView) {
+                expandedDevice = null
+                expandedPosition = null
+                this.expanded = false
+            } else {
+                // expand clicked item
+                deviceOnView.expanded = true
+
+                // collapse the previously expanded item
+                expandedDevice?.expanded = false
+                expandedDevice = deviceOnView
+
+                // notify the previous item changed and override the expanded position
+                expandedPosition?.let { deviceAdapter.notifyItemChanged(it) }
+                expandedPosition = position
+            }
         }
+        // notify the clicked item changed
         deviceAdapter.notifyItemChanged(position)
     }
 
@@ -346,6 +403,12 @@ class MainFragment : Fragment(), ClickActionInterface, BroadcastActionCallback {
             Log.i(TAG, "onReceive: FINISHED")
             scanLeDevice(false)
             viewModel.searchFinished()
+        }
+    }
+
+    override fun bluetoothScanModeChanged(state: Int) {
+        if(state != BluetoothAdapter.SCAN_MODE_CONNECTABLE_DISCOVERABLE) {
+            toggleDiscoverabilitySwitch(checked = false)
         }
     }
 

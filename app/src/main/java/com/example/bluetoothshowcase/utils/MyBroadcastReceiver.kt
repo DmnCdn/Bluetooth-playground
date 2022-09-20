@@ -15,6 +15,7 @@ interface BroadcastActionCallback {
     fun bluetoothBondStateChanged(device: BluetoothDevice?)
     fun startedBluetoothDiscovery()
     fun finishedBluetoothDiscovery()
+    fun bluetoothScanModeChanged(state: Int)
     fun bluetoothStateChanged(state: Int)
 }
 
@@ -44,6 +45,10 @@ class MyBroadcastReceiver(
                 BluetoothAdapter.ACTION_DISCOVERY_FINISHED -> finishedBluetoothDiscovery()
                 // started discovering devices
                 BluetoothAdapter.ACTION_DISCOVERY_STARTED -> startedBluetoothDiscovery()
+                // scan state changed (is connectable/discoverable/none)
+                BluetoothAdapter.ACTION_SCAN_MODE_CHANGED -> bluetoothScanModeChanged(
+                    intent.getIntExtra(BluetoothAdapter.EXTRA_SCAN_MODE, BluetoothAdapter.ERROR)
+                )
                 // toggled bluetooth
                 BluetoothAdapter.ACTION_STATE_CHANGED -> {
                     val state = intent.getIntExtra(

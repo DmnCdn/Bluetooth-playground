@@ -19,7 +19,7 @@ private const val TAG = "DeviceListAdapter"
 
 interface ClickActionInterface {
     fun connectButtonClicked(device: BluetoothDeviceOnView)
-    fun itemViewClicked(itemViewBinding: DeviceListItemViewBinding, position: Int)
+    fun itemViewClicked(deviceOnView: BluetoothDeviceOnView, position: Int)
 }
 
 class DeviceListAdapter (
@@ -64,11 +64,13 @@ class DeviceViewHolder(
         deviceAddressTextView.text = device.address
         deviceNameTextView.text = device.name
 
+        searchButton.isVisible = device.expanded
+
         searchButton.setOnClickListener {
             onClickAction.connectButtonClicked(device)
         }
         itemView.setOnClickListener {
-            onClickAction.itemViewClicked(binding, adapterPosition)
+            onClickAction.itemViewClicked(device, adapterPosition)
         }
     }
 }

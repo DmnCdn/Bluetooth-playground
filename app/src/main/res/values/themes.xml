@@ -18,6 +18,8 @@
         <!-- Customize your theme here. -->
     </style>
 
+<!--  progress  -->
+
     <style name="Widget.App.LinearProgressIndicator" parent="Widget.MaterialComponents.LinearProgressIndicator">
         <item name="indicatorColor">@color/inactive_link</item>
         <item name="android:trackTint">@color/primary_color</item>
@@ -25,8 +27,21 @@
         <item name="trackCornerRadius">4dp</item>
     </style>
 
+<!--  switch  -->
+
+    <style name="Widget.App.CompoundButton.Switch" parent="">
+        <item name="useMaterialThemeColors">true</item>
+    </style>
+
+    <style name="ThemeOverlay.App.CompoundButton.Switch" parent="Theme.MaterialComponents.Light">
+        <item name="colorSecondary">@color/primary_color</item>
+    </style>
+
+<!--  FAB  -->
+
     <style name="Widget.App.FloatingActionButton" parent="Widget.MaterialComponents.FloatingActionButton">
-        <item name="iconTint">@color/button_text</item>
+        <item name="backgroundTint">@color/button_bg</item>
+        <item name="tint">@color/button_text</item>
     </style>
 
     <style name="ThemeOverlay.App.FloatingActionButton" parent="">
