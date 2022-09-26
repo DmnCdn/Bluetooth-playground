@@ -13,11 +13,13 @@ import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.location.LocationManagerCompat
 import androidx.core.view.isInvisible
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
+import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.SimpleItemAnimator
 import com.example.bluetoothshowcase.R
@@ -157,6 +159,10 @@ class MainFragment : Fragment(), ClickActionInterface, BroadcastActionCallback {
             searchStarted = true
             search()
         }
+
+        binding.messageButton.setOnClickListener {
+            mBluetoothConnection?.write("Hello there!")
+        }
     }
 
     private fun observeViewModel() {
@@ -194,11 +200,16 @@ class MainFragment : Fragment(), ClickActionInterface, BroadcastActionCallback {
         filter.addAction(BluetoothDevice.ACTION_BOND_STATE_CHANGED)
         filter.addAction(BluetoothAdapter.ACTION_DISCOVERY_STARTED)
         filter.addAction(BluetoothAdapter.ACTION_DISCOVERY_FINISHED)
-        filter.addAction(LocationManager.MODE_CHANGED_ACTION)
-        filter.addAction(LocationManager.PROVIDERS_CHANGED_ACTION)
         filter.addAction(BluetoothAdapter.ACTION_STATE_CHANGED)
         filter.addAction(BluetoothAdapter.ACTION_SCAN_MODE_CHANGED)
+        filter.addAction(LocationManager.MODE_CHANGED_ACTION)
+        filter.addAction(LocationManager.PROVIDERS_CHANGED_ACTION)
         requireActivity().registerReceiver(receiver, filter)
+
+        val localFilter = IntentFilter()
+        localFilter.addAction(BluetoothConnectionService.INCOMING_MESSAGE)
+        localFilter.addAction(BluetoothConnectionService.SOCKET_STATE_CHANGED)
+        LocalBroadcastManager.getInstance(requireContext()).registerReceiver(receiver, localFilter)
     }
 
     private fun search() {
@@ -317,8 +328,11 @@ class MainFragment : Fragment(), ClickActionInterface, BroadcastActionCallback {
     }
 
     private fun connectToDevice(device: BluetoothDevice) {
-        Log.d(TAG, "connectToDevice: ${device.address}")
         mBluetoothConnection?.startConnectionClient(device)
+    }
+
+    private fun toast(message: String?) {
+        Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT).show()
     }
 
     // list adapter click actions
@@ -409,6 +423,23 @@ class MainFragment : Fragment(), ClickActionInterface, BroadcastActionCallback {
     override fun bluetoothScanModeChanged(state: Int) {
         if(state != BluetoothAdapter.SCAN_MODE_CONNECTABLE_DISCOVERABLE) {
             toggleDiscoverabilitySwitch(checked = false)
+        }
+    }
+
+    override fun receivedBluetoothMessage(message: String?) {
+        Log.e(TAG, "receivedBluetoothMessage: $message")
+        toast(message)
+    }
+
+    override fun bluetoothSocketStateChanged(state: Int, address: String?) {
+        when(state) {
+            BluetoothConnectionService.SOCKET_STATE_CONNECTED -> {
+                binding.messageButton.isEnabled = true
+                toast("Connected to $address")
+            }
+            else -> {
+                binding.messageButton.isEnabled = false
+            }
         }
     }
 

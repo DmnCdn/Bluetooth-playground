@@ -9,6 +9,7 @@ import android.content.Intent
 import android.os.Binder
 import android.os.IBinder
 import android.util.Log
+import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import com.example.bluetoothshowcase.R
 import dagger.hilt.android.AndroidEntryPoint
 import java.io.IOException
@@ -23,6 +24,19 @@ private const val SerialPortServiceClassUUID = "00001101-0000-1000-8000-00805F9B
 
 @AndroidEntryPoint
 class BluetoothConnectionService : Service() {
+
+    companion object {
+        const val EXTRA_MESSAGE = "BluetoothMessage"
+        const val INCOMING_MESSAGE = "IncomingBluetoothMessage"
+
+        const val SOCKET_STATE_CHANGED = "BluetoothSocketStateChanged"
+        const val EXTRA_SOCKET_STATE = "BluetoothSocketExtraState"
+        const val EXTRA_DEVICE_ADDRESS = "BluetoothSocketDeviceAddress"
+        const val SOCKET_STATE_ERROR = -1
+        const val SOCKET_STATE_ACCEPT = 0
+        const val SOCKET_STATE_CONNECT = 1
+        const val SOCKET_STATE_CONNECTED = 2
+    }
 
     @Inject
     lateinit var bluetoothAdapter: BluetoothAdapter
@@ -73,6 +87,7 @@ class BluetoothConnectionService : Service() {
         init {
             var tempSocket: BluetoothServerSocket? = null
             try {
+                updateSocketState(SOCKET_STATE_ACCEPT)
                 tempSocket = bluetoothAdapter.listenUsingInsecureRfcommWithServiceRecord(
                     applicationContext.getString(R.string.app_name),
                     UUID.fromString(SerialPortServiceClassUUID)
@@ -111,6 +126,7 @@ class BluetoothConnectionService : Service() {
 
         init {
             Log.i(TAG, "Connect thread init")
+            updateSocketState(SOCKET_STATE_CONNECT)
             mDevice = device
             mDeviceUUID = uuid
         }
@@ -137,9 +153,15 @@ class BluetoothConnectionService : Service() {
                     mSocket?.close()
                     Log.i(TAG, "run: Closed Socket.")
                 } catch (e1: IOException) {
-                    Log.e(TAG, "mConnectThread: run: Unable to close connection in socket " + e1.message)
+                    Log.e(
+                        TAG,
+                        "mConnectThread: run: Unable to close connection in socket " + e1.message
+                    )
                 }
-                Log.i(TAG, "Connect thread run: Could not connect to device with UUID: $SerialPortServiceClassUUID")
+                Log.i(
+                    TAG,
+                    "Connect thread run: Could not connect to device with UUID: $SerialPortServiceClassUUID"
+                )
             } catch (e: IOException) {
                 Log.e(TAG, "mConnectThread run: ", e)
             }
@@ -165,7 +187,9 @@ class BluetoothConnectionService : Service() {
         private val mmBuffer = ByteArray(1024)
 
         init {
-            Log.i(TAG, "Connected thread init ${socket.remoteDevice.address}")
+            mDevice = socket.remoteDevice
+            Log.i(TAG, "Connected thread init ${mDevice?.address}")
+            updateSocketState(SOCKET_STATE_CONNECTED)
             mmSocket = socket
         }
 
@@ -177,8 +201,16 @@ class BluetoothConnectionService : Service() {
                     numBytes = mmInStream.read(mmBuffer)
                     val message = String(mmBuffer, 0, numBytes)
                     Log.d(TAG, "${mmSocket.remoteDevice.address}: $message")
+
+                    val incomingMessageIntent = Intent(INCOMING_MESSAGE)
+                    incomingMessageIntent.putExtra(EXTRA_MESSAGE, message)
+                    LocalBroadcastManager.getInstance(applicationContext)
+                        .sendBroadcast(incomingMessageIntent)
+
                 } catch (e: IOException) {
                     Log.d(TAG, "Input stream was disconnected", e)
+                    mmSocket.close()
+                    startAcceptThread()
                     break
                 }
             }
@@ -191,7 +223,7 @@ class BluetoothConnectionService : Service() {
             try {
                 mmOutStream.write(bytes)
             } catch (e: IOException) {
-                Log.e(TAG,"write: Error writing to output stream. " + e.message)
+                Log.e(TAG, "write: Error writing to output stream. " + e.message)
             }
         }
 
@@ -220,10 +252,13 @@ class BluetoothConnectionService : Service() {
             mConnectThread?.cancel()
             mConnectThread = null
         }
-        if (mAcceptThread == null) {
-            mAcceptThread = AcceptThread()
-            mAcceptThread?.start()
+        if (mConnectedThread != null) {
+            mConnectedThread?.cancel()
+            mConnectedThread = null
         }
+
+        mAcceptThread = AcceptThread()
+        mAcceptThread?.start()
     }
 
     // start connection with a device
@@ -247,5 +282,15 @@ class BluetoothConnectionService : Service() {
     fun write(message: String) {
         val bytes = message.toByteArray(Charset.defaultCharset())
         mConnectedThread?.write(bytes)
+    }
+
+    private fun updateSocketState(state: Int) {
+        val socketStateIntent = Intent(SOCKET_STATE_CHANGED)
+        socketStateIntent.putExtra(EXTRA_SOCKET_STATE, state)
+        mDevice?.let { device ->
+            Log.d(TAG, "updateSocketState: ${device.address}")
+            socketStateIntent.putExtra(EXTRA_DEVICE_ADDRESS, device.address)
+        }
+        LocalBroadcastManager.getInstance(applicationContext).sendBroadcast(socketStateIntent)
     }
 }

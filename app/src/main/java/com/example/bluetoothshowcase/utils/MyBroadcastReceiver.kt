@@ -6,6 +6,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.location.LocationManager
+import com.example.bluetoothshowcase.service.BluetoothConnectionService
 
 private const val TAG = "MyBroadcastReceiver"
 
@@ -16,6 +17,8 @@ interface BroadcastActionCallback {
     fun startedBluetoothDiscovery()
     fun finishedBluetoothDiscovery()
     fun bluetoothScanModeChanged(state: Int)
+    fun receivedBluetoothMessage(message: String?)
+    fun bluetoothSocketStateChanged(state: Int, address: String?)
     fun bluetoothStateChanged(state: Int)
 }
 
@@ -48,6 +51,13 @@ class MyBroadcastReceiver(
                 // scan state changed (is connectable/discoverable/none)
                 BluetoothAdapter.ACTION_SCAN_MODE_CHANGED -> bluetoothScanModeChanged(
                     intent.getIntExtra(BluetoothAdapter.EXTRA_SCAN_MODE, BluetoothAdapter.ERROR)
+                )
+                BluetoothConnectionService.INCOMING_MESSAGE -> receivedBluetoothMessage(
+                    intent.getStringExtra(BluetoothConnectionService.EXTRA_MESSAGE)
+                )
+                BluetoothConnectionService.SOCKET_STATE_CHANGED -> bluetoothSocketStateChanged(
+                    state = intent.getIntExtra(BluetoothConnectionService.EXTRA_SOCKET_STATE, BluetoothConnectionService.SOCKET_STATE_ERROR),
+                    address = intent.getStringExtra(BluetoothConnectionService.EXTRA_DEVICE_ADDRESS)
                 )
                 // toggled bluetooth
                 BluetoothAdapter.ACTION_STATE_CHANGED -> {
