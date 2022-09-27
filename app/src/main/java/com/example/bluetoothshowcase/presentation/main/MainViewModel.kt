@@ -72,4 +72,6 @@ class MainViewModel @Inject constructor(
     ): BluetoothDevice = btAdapter.getRemoteDevice(address)
 
     fun isBluetoothEnabled(): Boolean = btAdapter.isEnabled
+
+    fun isBluetoothDiscoverable(): Boolean = (btAdapter.state == BluetoothAdapter.SCAN_MODE_CONNECTABLE_DISCOVERABLE)
 }

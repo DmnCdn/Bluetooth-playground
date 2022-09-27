@@ -16,7 +16,9 @@ import android.view.ViewGroup
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.location.LocationManagerCompat
+import androidx.core.view.isGone
 import androidx.core.view.isInvisible
+import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
@@ -38,6 +40,7 @@ private const val DISCOVERABLE_DURATION = 15
 class MainFragment : Fragment(), ClickActionInterface, BroadcastActionCallback {
 
     private var searchStarted = false
+    private var isTurningOnDiscoverability = false
 
     private var _binding: FragmentMainBinding? = null
     private val binding get() = _binding!!
@@ -77,9 +80,16 @@ class MainFragment : Fragment(), ClickActionInterface, BroadcastActionCallback {
 
     private val requestDiscoverability =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-            if(result.resultCode != DISCOVERABLE_DURATION) {
-                toggleDiscoverabilitySwitch(checked = false)
+            try {
+                updateScanModeState(viewModel.btAdapter.scanMode)
+            } catch (e: SecurityException) {
+                return@registerForActivityResult
             }
+
+            if(result.resultCode != DISCOVERABLE_DURATION) {
+                return@registerForActivityResult
+            }
+            mBluetoothConnection?.startAcceptThread()
         }
 
     private var mLeScanCallback: ScanCallback =
@@ -143,14 +153,13 @@ class MainFragment : Fragment(), ClickActionInterface, BroadcastActionCallback {
         with(binding.discoverabilitySwitch) {
             setOnCheckedChangeListener { _, checked ->
                 if(checked) {
-                    // disable the switch
-                    this.isClickable = false
-                    // start discoverability
-                    val intent = Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE)
-                    intent.putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, DISCOVERABLE_DURATION)
-                    requestDiscoverability.launch(intent)
+                    // make the switch not clickable
+//                    this.isClickable = false
+                    // check if bluetooth enabled
+                    // todo toggle off and check if bluetooth on
+                    turnOnDiscoverability()
                 } else {
-                    this.isClickable = true
+//                    this.isClickable = true
                 }
             }
         }
@@ -245,15 +254,27 @@ class MainFragment : Fragment(), ClickActionInterface, BroadcastActionCallback {
     }
 
     private fun turnOnBluetooth() {
-        val intent = Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)
-        requestBluetooth.launch(intent)
+        if (!viewModel.isBluetoothEnabled()) {
+            val intent = Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)
+            requestBluetooth.launch(intent)
+        }
+    }
+
+    private fun turnOnDiscoverability() {
+        if(!viewModel.isBluetoothDiscoverable() && !isTurningOnDiscoverability) {
+            isTurningOnDiscoverability = true
+            val intent = Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE)
+            intent.putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, DISCOVERABLE_DURATION)
+            requestDiscoverability.launch(intent)
+        }
     }
 
     private fun toggleDiscoverabilitySwitch(checked: Boolean? = null) {
         with(binding.discoverabilitySwitch) {
+            // flip the switch accordingly
             checked?.let {
                 isChecked = checked
-            } ?: {
+            } ?: run {
                 isChecked = !isChecked
             }
         }
@@ -285,6 +306,15 @@ class MainFragment : Fragment(), ClickActionInterface, BroadcastActionCallback {
         binding.searchButton.isEnabled = true
     }
 
+    private fun showConnectProgress(address: String?) {
+        binding.connectingToText.text = requireContext().getString(R.string.connecting_to, address)
+        binding.connectingView.isVisible = true
+    }
+
+    private fun hideConnectProgress() {
+        binding.connectingView.isGone = true
+    }
+
     private fun scanLeDevice(enable: Boolean) {
         try {
             when (enable) {
@@ -308,6 +338,7 @@ class MainFragment : Fragment(), ClickActionInterface, BroadcastActionCallback {
         with(requireContext()) {
             val serviceIntent = Intent(this, BluetoothConnectionService::class.java)
             bindService(serviceIntent, bluetoothServiceConnection, Context.BIND_AUTO_CREATE)
+            mBluetoothConnection?.stopService(serviceIntent)
         }
     }
 
@@ -331,6 +362,18 @@ class MainFragment : Fragment(), ClickActionInterface, BroadcastActionCallback {
         mBluetoothConnection?.startConnectionClient(device)
     }
 
+    private fun updateScanModeState(state: Int) {
+        when(state) {
+            BluetoothAdapter.SCAN_MODE_CONNECTABLE_DISCOVERABLE -> {
+                toggleDiscoverabilitySwitch(checked = true)
+            }
+            else -> {
+                toggleDiscoverabilitySwitch(checked = false)
+                hideConnectProgress()
+            }
+        }
+    }
+
     private fun toast(message: String?) {
         Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT).show()
     }
@@ -338,8 +381,9 @@ class MainFragment : Fragment(), ClickActionInterface, BroadcastActionCallback {
     // list adapter click actions
 
     override fun connectButtonClicked(device: BluetoothDeviceOnView) {
-        Log.d(TAG, "${device.address} clicked!")
         try {
+            showConnectProgress(device.address)
+
             viewModel.btAdapter.cancelDiscovery()
             val deviceObject = viewModel.getDeviceWithAddress(device.address)
             if(deviceObject.bondState == BluetoothDevice.BOND_NONE) {
@@ -421,9 +465,7 @@ class MainFragment : Fragment(), ClickActionInterface, BroadcastActionCallback {
     }
 
     override fun bluetoothScanModeChanged(state: Int) {
-        if(state != BluetoothAdapter.SCAN_MODE_CONNECTABLE_DISCOVERABLE) {
-            toggleDiscoverabilitySwitch(checked = false)
-        }
+        updateScanModeState(state)
     }
 
     override fun receivedBluetoothMessage(message: String?) {
@@ -434,8 +476,13 @@ class MainFragment : Fragment(), ClickActionInterface, BroadcastActionCallback {
     override fun bluetoothSocketStateChanged(state: Int, address: String?) {
         when(state) {
             BluetoothConnectionService.SOCKET_STATE_CONNECTED -> {
+                hideConnectProgress()
                 binding.messageButton.isEnabled = true
                 toast("Connected to $address")
+            }
+            BluetoothConnectionService.SOCKET_STATE_ACCEPT -> {
+                binding.messageButton.isEnabled = false
+                hideConnectProgress()
             }
             else -> {
                 binding.messageButton.isEnabled = false
@@ -448,6 +495,7 @@ class MainFragment : Fragment(), ClickActionInterface, BroadcastActionCallback {
             BluetoothAdapter.STATE_TURNING_OFF -> {
                 unbindBluetoothService()
                 disableBluetoothScan()
+                mBluetoothConnection?.clearThreads()
             }
             BluetoothAdapter.STATE_ON -> {
                 bindBluetoothService()

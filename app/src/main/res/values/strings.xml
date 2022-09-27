@@ -10,6 +10,8 @@
     <string name="searching">Searching…</string>
     <string name="found_devices">Found %1$d devices near you.</string>
 
+    <string name="connecting_to">Connecting to %1$s…</string>
+
     <string name="ndash">&#8212;</string>
     <string name="connect">Connect</string>
 </resources>

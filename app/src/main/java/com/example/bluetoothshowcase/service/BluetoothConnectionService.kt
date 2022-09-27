@@ -59,7 +59,6 @@ class BluetoothConnectionService : Service() {
     override fun onCreate() {
         Log.i(TAG, "onCreate")
         super.onCreate()
-        startAcceptThread()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -93,7 +92,9 @@ class BluetoothConnectionService : Service() {
                     UUID.fromString(SerialPortServiceClassUUID)
                 )
             } catch (e: SecurityException) {
-                Log.e(TAG, "Accept thread exception: ", e)
+                Log.e(TAG, "Accept thread security exception: ", e)
+            } catch (e: IOException) {
+                Log.e(TAG, "Accept thread io exception: ", e)
             }
             mServerSocket = tempSocket
         }
@@ -142,12 +143,11 @@ class BluetoothConnectionService : Service() {
                 Log.e(TAG, "Connect thread run: ", e)
             }
             mSocket = tempSocket
-
             // make a connection to the bluetooth socket
             try {
                 bluetoothAdapter.cancelDiscovery()
                 mSocket?.connect()
-                Log.i(TAG, "run: ConnectThread connected.")
+                connected(mSocket)
             } catch (e: SecurityException) {
                 try {
                     mSocket?.close()
@@ -164,9 +164,9 @@ class BluetoothConnectionService : Service() {
                 )
             } catch (e: IOException) {
                 Log.e(TAG, "mConnectThread run: ", e)
+                mDevice = null
+                startAcceptThread()
             }
-
-            connected(mSocket)
         }
 
         fun cancel() {
@@ -210,6 +210,7 @@ class BluetoothConnectionService : Service() {
                 } catch (e: IOException) {
                     Log.d(TAG, "Input stream was disconnected", e)
                     mmSocket.close()
+                    mDevice = null
                     startAcceptThread()
                     break
                 }
@@ -247,24 +248,53 @@ class BluetoothConnectionService : Service() {
 
     // cancel connect thread and start the accept one
     // basically delete the previous connection and start discovery for new one
-    private fun startAcceptThread() {
+    fun startAcceptThread() {
+        cancelConnectThread()
+        cancelConnectedThread()
+
+        mAcceptThread?.cancel()
+        mAcceptThread = AcceptThread()
+        mAcceptThread?.start()
+    }
+
+    fun clearThreads() {
+        cancelAcceptThread()
+        cancelConnectThread()
+        cancelConnectedThread()
+    }
+
+    private fun cancelAcceptThread() {
+        if (mAcceptThread != null) {
+            mAcceptThread?.cancel()
+            mAcceptThread = null
+        } else {
+            Log.i(TAG, "cancelAcceptThread: is already null")
+        }
+    }
+
+    private fun cancelConnectThread() {
         if (mConnectThread != null) {
             mConnectThread?.cancel()
             mConnectThread = null
+        } else {
+            Log.i(TAG, "cancelConnectThread: is already null")
         }
+    }
+
+    private fun cancelConnectedThread() {
         if (mConnectedThread != null) {
             mConnectedThread?.cancel()
             mConnectedThread = null
+        } else {
+            Log.i(TAG, "cancelConnectedThread: is already null")
         }
-
-        mAcceptThread = AcceptThread()
-        mAcceptThread?.start()
     }
 
     // start connection with a device
     fun startConnectionClient(device: BluetoothDevice?) {
         Log.d(TAG, "startConnectionClient")
         // connect thread attempts to make a connection with the other devices accept thread
+        mConnectThread?.cancel()
         mConnectThread = ConnectThread(device, UUID.fromString(SerialPortServiceClassUUID))
         mConnectThread?.start()
     }
@@ -274,6 +304,8 @@ class BluetoothConnectionService : Service() {
 
         // Start the thread to manage the connection and perform transmissions
         socket?.let {
+            cancelAcceptThread()
+            mConnectedThread?.cancel()
             mConnectedThread = ConnectedThread(it)
             mConnectedThread?.start()
         }
